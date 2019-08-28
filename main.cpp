@@ -24,15 +24,14 @@ lightSource::lightSource(double x, double y)//constructor
 int main()
 {
 	bool running;
-	bool redraw;
+	bool redraw = true;
 
-	float FPS = 60;
-	int SCREEN_W = 500;
-	int SCREEN_H = 500;
+	float FPS = 40;
+	int SCREENSCALE = 750;
 
-	const int matrixSize = 100;
-	const int screenSize = 500;
-	double scaling = 1.00/(screenSize/matrixSize);//current 0.1, scales console numbers to fit onto matrix.
+	const int matrixSize = 75;
+	//const int screenSize = SCREENSCALE;
+	double scaling = 1.00 / (SCREENSCALE / matrixSize);//current 0.1, scales console numbers to fit onto matrix.
 	cout << scaling << endl;
 
 	double lightMatrix[matrixSize][matrixSize];
@@ -43,9 +42,9 @@ int main()
 	const double lightIntensity = 100.0;
 
 	bool lMouseButton = false;
-	double lMouseButtonTimer = 0.0;
+	bool lMouseButtonHeld = false;
 	bool rMouseButton = false;
-	double rMouseButtonTimer = 0.0;
+	bool rMouseButtonHeld = false;
 	double mouseX = 0.0;
 	double mouseY = 0.0;
 	int dragX = 0;
@@ -69,7 +68,7 @@ int main()
 	ALLEGRO_MOUSE_STATE state;
 
 	//defining timer, display, and queue
-	display = al_create_display(SCREEN_W, SCREEN_H);
+	display = al_create_display(SCREENSCALE, SCREENSCALE);
 	event_queue = al_create_event_queue();
 	timer = al_create_timer(1.0 / FPS);
 
@@ -81,14 +80,13 @@ int main()
 	al_flip_display();
 	al_start_timer(timer);
 
-	for (int x = 0; x < matrixSize; x++) {
+	for (int x = 0; x < matrixSize; x++) {//defining matrices
 		for (int y = 0; y < matrixSize; y++) {
 			lightMatrix[x][y] = 1.0;
 			objectMatrix[x][y] = EMPTY;
 			overlapMatrix[x][y] = false;
 		}
 	}
-
 
 	//BEGIN GAME LOOP
 	while (1) {//runs until 'break' command is used
@@ -128,37 +126,31 @@ int main()
 
 			redraw = true;
 
-			//frames++;
-			//if (al_current_time() - engineTime >= 1)
-			//{
-			//	engineTime = al_current_time();
-			//	engineFPS = frames;
-			//	frames = 0;
-			//}
-
 			if (rMouseButton)//if rMouseButton is clicked, generate a lightSource class and add to the vector
 			{
 				rMouseButton = false;
-				int x = (mouseX / (screenSize / matrixSize));
-				int y = (mouseY / (screenSize / matrixSize));
-				objectMatrix[x][y] = LIGHTSOURCE;
+				int x = (mouseX*scaling);
+				int y = (mouseY*scaling);
 
-				lightSource lightSource(mouseX, mouseY);
-				lightSourceList.push_back(lightSource);
+				if (objectMatrix[x][x] != FILLED) {//do not create light source within a filled space
+					objectMatrix[x][y] = LIGHTSOURCE;
+
+					lightSource lightSource(mouseX, mouseY);//
+					lightSourceList.push_back(lightSource);
+				}
 			}
 			//////////////////////////////////////////////////////////////////////////////////////////////////////HIGHLIGHTING TOOL CREATION
-			if (lMouseButton && lMouseButtonTimer == 0)//when left mouse is initially clicked
+			if (lMouseButton && !lMouseButtonHeld)//when left mouse is initially clicked
 			{
 				dragX = mouseX;//track initial position of click
 				dragY = mouseY;
-				lMouseButtonTimer += 1.0 / FPS;
+				lMouseButtonHeld = true;
 			}
-			else if (lMouseButton && lMouseButtonTimer > 0)//when leftmouse button is held down
+			else if (lMouseButton && lMouseButtonHeld)//when leftmouse button is held down
 			{
 				drawSelectionBox = true;
-				lMouseButtonTimer += 1.0 / FPS;
 			}
-			else if (!lMouseButton && lMouseButtonTimer > 0)//when left mouse button is initially released
+			else if (!lMouseButton && lMouseButtonHeld)//when left mouse button is initially released
 			{
 
 				//setting selected region to a block in objectMatrix
@@ -198,10 +190,10 @@ int main()
 				}
 
 				//scaling to matrix
-				startingX = startingX / (screenSize / matrixSize);
-				startingY = startingY / (screenSize / matrixSize);
-				endingX = endingX / (screenSize / matrixSize);
-				endingY = endingY / (screenSize / matrixSize);
+				startingX = startingX * scaling;
+				startingY = startingY * scaling;
+				endingX = endingX * scaling;
+				endingY = endingY * scaling;
 
 				//checking matrix for light sources before highlighting section	
 				bool noLightSources = true;
@@ -223,7 +215,7 @@ int main()
 				}
 
 				//resetting variables now that box is released
-				lMouseButtonTimer = 0;
+				lMouseButtonHeld = false;
 				dragX = 0;
 				dragY = 0;
 				drawSelectionBox = false;
@@ -243,48 +235,40 @@ int main()
 			//going to each light source and seeing how it affects surrounding area
 			for (iter = lightSourceList.begin(); iter != lightSourceList.end(); ++iter)
 			{
-				double thetaIncrement = 1.0;
+				//double thetaIncrement = 0.85;
+				double thetaIncrement = (atan2(scaling, (double) SCREENSCALE));
+				cout << thetaIncrement << endl;
 				for (double theta = 0.0; theta < 360.0; theta += thetaIncrement)//rotating around light source
 				{
-				for (double radius = 0.0; radius < screenSize; radius += 5.0) {
+
+					double maxRadius = 175.0;//if this number goes beyond 255, the RGB values will go full circle and cause striped lighting.
+					for (double radius = 0.0; radius < maxRadius; radius += 5.0) {
 						double convertedTheta = theta;
 						if (convertedTheta < 0)
 							convertedTheta *= -1;
 						else if (convertedTheta > 0)
 							convertedTheta = 360 - convertedTheta;
-						convertedTheta = -convertedTheta*(PI / 180);
+						convertedTheta = -convertedTheta * (PI / 180);
 
 						double x = ((iter)->x + (cos(convertedTheta)*radius))*scaling;
 						double y = ((iter)->y + (sin(convertedTheta)*radius))*scaling;
-						//cout << ((iter)->x + (cos(convertedTheta)*radius)) / (screenSize / matrixSize) << endl;
-						//int x = x;
 
-						//constraining coordinates within matrix (to prevent code instability by going beyond bounds of matrix)
-						if (x >= matrixSize)
-							x = matrixSize - 1;
-						else if (x < 0)
-							x = 0.0;
-						if (y >= matrixSize)
-							y = matrixSize - 1;
-						else if (y < 0)
-							y = 0.0;
+						//exiting if coordinates exceed matrix (to prevent code instability by going beyond bounds of matrix)
+						if (x >= matrixSize || x < 0 || y >= matrixSize || y < 0)
+						{
+							radius = maxRadius;//exit loop
+						}
+						else {
+							if (objectMatrix[(int)x][(int)y] == FILLED)//if the space is filled, exit
+							{
+								overlapMatrix[(int)x][(int)y] = true;
+								radius = maxRadius;//exit loop
+							}
 
-						if (objectMatrix[(int)x][(int)y] == FILLED && !overlapMatrix[(int)x][(int)y])//if the space is filled, while also not being accessed by this light source before
-						{
-							overlapMatrix[(int)x][(int)y] = true;
-							lightMatrix[(int)x][(int)y] = 1/(radius/screenSize);
-							radius = screenSize;//exit loop
-						}
-						else if (objectMatrix[(int)x][(int)y] == FILLED && overlapMatrix[(int)x][(int)y])//if the space is filled, while being accessed by this light source before
-						{
-							radius = screenSize;//exit loop
-						}
-						else if (objectMatrix[(int)x][(int)y] != FILLED && !overlapMatrix[(int)x][(int)y]) {//if the space is not filled, and has not been accessed before
-							overlapMatrix[(int)x][(int)y] = true;							
-							lightMatrix[(int)x][(int)y] = 1/(radius / screenSize);
-						}
-						else if (objectMatrix[(int)x][(int)y] != FILLED && overlapMatrix[(int)x][(int)y]) {//if the space is not filled, and has been accessed before
-							//do nothing (code present to represent all possible options within else if statemennt)
+							else if (objectMatrix[(int)x][(int)y] != FILLED && !overlapMatrix[(int)x][(int)y]) {//if the space is not filled, and has not been accessed before
+								overlapMatrix[(int)x][(int)y] = true;
+								lightMatrix[(int)x][(int)y] += (255.0 - ((radius / maxRadius) * 255.0));
+							}
 						}
 
 					}
@@ -292,12 +276,17 @@ int main()
 
 				for (int x = 0; x < matrixSize; x++) {
 					for (int y = 0; y < matrixSize; y++) {
-						overlapMatrix[x][y] = false;
+						overlapMatrix[x][y] = false;//refreshing overlap check before moving to next light source
 					}
 				}
 
 			}//vector search end
-
+			for (int x = 0; x < matrixSize; x++) {
+				for (int y = 0; y < matrixSize; y++) {
+					if (lightMatrix[x][y] > 255.0)//setting maximum light value to 255 to prevent striping
+						lightMatrix[x][y] = 255.0;
+				}
+			}
 
 		}//update section end
 
@@ -314,21 +303,17 @@ int main()
 			for (int x = 0; x < matrixSize; x++) {
 				for (int y = 0; y < matrixSize; y++) {
 
-					double lightLevel = lightMatrix[x][y]*255.0;
-					//cout << lightMatrix[x][y];
+					double lightLevel = lightMatrix[x][y];
 
 					if (objectMatrix[x][y] == FILLED)
-						al_draw_filled_rectangle(x*(SCREEN_W / matrixSize), y*(SCREEN_H / matrixSize), x*(SCREEN_W / matrixSize) + matrixSize, y*(SCREEN_H / matrixSize) + matrixSize,
-							al_map_rgb(lightLevel, lightLevel, lightLevel + 50));
-					if (objectMatrix[x][y] == LIGHTSOURCE)
-						al_draw_filled_rectangle(x*(SCREEN_W / matrixSize), y*(SCREEN_H / matrixSize), x*(SCREEN_W / matrixSize) + matrixSize, y*(SCREEN_H / matrixSize) + matrixSize, al_map_rgb(lightLevel, 50 + lightLevel, lightLevel));
-					if (objectMatrix[x][y] == EMPTY)
-						al_draw_filled_rectangle(x*(SCREEN_W / matrixSize), y*(SCREEN_H / matrixSize), x*(SCREEN_W / matrixSize) + matrixSize, y*(SCREEN_H / matrixSize) + matrixSize, al_map_rgb(lightLevel, lightLevel, lightLevel));
+						al_draw_filled_rectangle(x*(SCREENSCALE / matrixSize), y*(SCREENSCALE / matrixSize), x*(SCREENSCALE / matrixSize) + matrixSize, y*(SCREENSCALE / matrixSize) + matrixSize,
+							al_map_rgb(0, 0, 255));
+					if (objectMatrix[x][y] == EMPTY || objectMatrix[x][y] == LIGHTSOURCE)
+						al_draw_filled_rectangle(x*(SCREENSCALE / matrixSize), y*(SCREENSCALE / matrixSize), x*(SCREENSCALE / matrixSize) + matrixSize, y*(SCREENSCALE / matrixSize) + matrixSize, al_map_rgb(lightLevel, lightLevel, lightLevel));
 				}
-				//cout << endl;
 			}
 			if (drawSelectionBox)
-				al_draw_rectangle(dragX, dragY, mouseX, mouseY, al_map_rgb(0, 255, 0), 1);
+				al_draw_rectangle(dragX, dragY, mouseX, mouseY, al_map_rgb(255, 0, 0), 3);
 
 			al_flip_display();//essentially takes what takes all recent draw commands and makes them visible. 
 		}
