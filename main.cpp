@@ -5,6 +5,7 @@
 #include <vector>
 #include <math.h>
 #include <fstream>
+#include <string>
 
 using namespace std;
 const double PI = 3.14159265;//defining PI for later trig use
@@ -35,11 +36,11 @@ int main()
 {
 	bool redraw = true;
 
-	float FPS = 60;
-	int SCREENSCALE = 750;
+	float FPS = 80;
+	int SCREENSCALE = 500;
 	double scaling = 1.00 / (SCREENSCALE / matrixSize);//scales console numbers to fit onto matrix slots.
 
-	double maxLightRadius = 200.0;//if this number goes beyond 255, the RGB values will go full circle and cause striped lighting.
+	double maxLightRadius = 300.0;//if this number goes beyond 255, the RGB values will go full circle and cause striped lighting.
 
 	double lightMatrix[matrixSize][matrixSize];//stores light values that will be rendered
 	bool overlapMatrix[matrixSize][matrixSize];//tracks light sources accessing of slots in matrix, so that overlap within raycasting doews not occur.
@@ -87,8 +88,10 @@ int main()
 
 
 	//opening .txt file for copying into objectMatrix
-	ifstream file;
+	fstream file;
+	string fileOutput;
 	file.open("data.txt");
+
 	if (!file.is_open()) {
 		cout << "Could not open file myfile.txt." << endl;
 		return 1;
@@ -102,18 +105,30 @@ int main()
 			objectMatrix[x][y] = EMPTY;
 		}
 	}
-	
-	int fileOutput;
-	file >> fileOutput;
-	cout << fileOutput << endl << endl;
-	//for (int x = 0; x < matrixSize; x++) {
-	//	for (int y = 0; y < matrixSize; y++) {
-	//		file >> fileOutput;
-	//		cout << fileOutput; 
-	//		objectMatrix[x][y] = fileOutput;
-	//	}
-	//	cout << endl;
-	//}
+
+
+	//file >> fileOutput;
+	//cout << fileOutput << endl << endl;
+
+	for (int y = 0; y < matrixSize; y++) {
+		for (int x = 0; x < matrixSize; x++) {
+			//cout << fileOutput; 
+			//if (file.good()) {
+				file >> fileOutput;
+				//int convertedFileOutput = stoi(fileOutput,nullptr,10);
+				//cout << fileOutput;
+				objectMatrix[x][y] = stoi(fileOutput);//ya and x are reversed intentionally to counteract file output
+
+				if (stoi(fileOutput) == LIGHTSOURCE)
+				{
+					cout << "flag" << endl;
+					lightSource lightSource(x/scaling, y/scaling);//create lightSource class
+					lightSourceList.push_back(lightSource);//store class within class vector
+				}
+			//}
+			//else cout<<"file is not good"<<endl;
+		}
+	}
 
 	//for (int x = 0; x < matrixSize; x++) {//defining matrices
 	//	for (int y = 0; y < matrixSize; y++) {
@@ -126,7 +141,7 @@ int main()
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////BEGIN GAME LOOP
 	while (1) {//runs until 'break' command is used
-		
+
 		ALLEGRO_EVENT ev;//set up input through allegro
 		al_wait_for_event(event_queue, &ev);//wait for input (axes, l/r clicking, etc)
 
@@ -213,9 +228,9 @@ int main()
 			for (iter = lightSourceList.begin(); iter != lightSourceList.end(); ++iter)
 			{
 				double thetaIncrement = atan2(matrixSize, 1.0);//distance from 
-				
+
 				for (double theta = 0.0; theta < 360.0; theta += thetaIncrement)//rotating around light source
-				{					
+				{
 					for (double radius = 0.0; radius < maxLightRadius; radius += 5.0)//expanding light out from light source
 					{
 						//corrected theta value by first chaning the range, making negative, then converting it from degrees to radians:
